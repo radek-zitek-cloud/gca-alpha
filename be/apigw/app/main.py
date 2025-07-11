@@ -1,6 +1,26 @@
 from fastapi import FastAPI, HTTPException
 
-app = FastAPI()
+from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.metrics import router as metrics_router
+from app.core.middleware import MetricsMiddleware
+
+app = FastAPI(
+    title="API Gateway",
+    description="A FastAPI-based API Gateway service",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Add metrics middleware
+app.add_middleware(MetricsMiddleware)
+
+# Include health endpoints
+app.include_router(health_router, prefix="/api/v1")
+
+# Include metrics endpoints  
+app.include_router(metrics_router, prefix="/api/v1")
+
 
 @app.get("/")
 async def read_root():
