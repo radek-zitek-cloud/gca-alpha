@@ -1,0 +1,191 @@
+# Development Environment Configuration
+# This configuration is optimized for local development and testing
+
+# Gateway server configuration
+server:
+  host: "localhost"
+  port: 8000
+  workers: 1
+  debug: true
+  reload: true  # Auto-reload on code changes
+  log_level: "debug"
+  access_log: true
+
+# Logging configuration for development
+logging:
+  level: "DEBUG"
+  format: "pretty"  # Human-readable format
+  output: "console"
+  
+  # More verbose logging for development
+  loggers:
+    uvicorn:
+      level: "INFO"
+    httpx:
+      level: "DEBUG"
+    app.gateway:
+      level: "DEBUG"
+    app.services:
+      level: "DEBUG"
+
+# Security settings (relaxed for development)
+security:
+  cors:
+    enabled: true
+    allow_origins: ["*"]  # Allow all origins in dev
+    allow_methods: ["*"]
+    allow_headers: ["*"]
+    allow_credentials: true
+    
+  authentication:
+    enabled: false  # Disabled for easier testing
+    
+  rate_limiting:
+    enabled: false  # Disabled for development
+    
+  api_keys:
+    enabled: false
+
+# Monitoring and observability
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    include_detailed_metrics: true
+    
+  health_checks:
+    enabled: true
+    endpoint: "/health"
+    check_upstream_services: true
+    timeout_seconds: 3
+    
+  tracing:
+    enabled: false  # Usually disabled in dev to reduce noise
+    
+  request_logging:
+    enabled: true
+    log_request_body: true   # Detailed logging for debugging
+    log_response_body: true
+    log_headers: true
+    sensitive_headers: ["authorization", "x-api-key"]
+
+# Service discovery and registry
+service_discovery:
+  type: "static"  # Use static configuration in development
+  
+  static_config:
+    config_file: "services.yaml"
+    auto_reload: true  # Reload services config on changes
+    
+  health_check:
+    interval_seconds: 30
+    timeout_seconds: 5
+    concurrent_checks: 5
+
+# Load balancing
+load_balancing:
+  default_strategy: "round_robin"
+  health_check_required: false  # Allow unhealthy services for testing
+  
+# Caching (minimal for development)
+cache:
+  enabled: false  # Usually disabled to see live changes
+  
+# Development-specific settings
+development:
+  # Mock external services
+  mock_external_services: false
+  
+  # Debug endpoints
+  debug_endpoints:
+    enabled: true
+    routes:
+      - path: "/debug/config"
+        description: "Show current configuration"
+      - path: "/debug/services"
+        description: "Show registered services"
+      - path: "/debug/routes"
+        description: "Show all routes"
+        
+  # Test data
+  test_data:
+    enabled: true
+    seed_data: true
+    
+  # Performance settings (relaxed)
+  timeouts:
+    default_connect: 10.0
+    default_read: 60.0
+    default_write: 10.0
+    
+  # Request size limits (generous for testing)
+  limits:
+    max_request_size: "100MB"
+    max_upload_size: "50MB"
+
+# Feature flags for development
+features:
+  # Enable experimental features for testing
+  circuit_breaker: false
+  request_retry: true
+  response_compression: false
+  request_id_generation: true
+  
+  # Development-specific features
+  auto_service_discovery: false
+  config_hot_reload: true
+  detailed_error_responses: true  # Show full error details
+
+# External integrations (development versions)
+integrations:
+  prometheus:
+    enabled: false  # Usually run separately in dev
+    
+  jaeger:
+    enabled: false
+    
+  consul:
+    enabled: false
+    
+  redis:
+    enabled: false
+    
+# Environment-specific overrides
+environment:
+  name: "development"
+  deployment_id: "dev-local"
+  version: "latest"
+  
+# Gateway metadata
+gateway:
+  name: "gca-api-gateway"
+  description: "Development API Gateway"
+  version: "0.1.0-dev"
+  environment: "development"
+  region: "local"
+  
+  # Contact information for development
+  contact:
+    name: "Development Team"
+    email: "dev@example.com"
+    documentation: "http://localhost:8000/docs"
+    
+  # Tags for service identification
+  tags:
+    - "development"
+    - "api-gateway"
+    - "local"
+    
+# Startup behavior
+startup:
+  # Wait for dependencies (disabled for faster startup)
+  wait_for_dependencies: false
+  
+  # Preload services
+  preload_services: true
+  
+  # Health check on startup
+  initial_health_check: false
+  
+  # Warm up period
+  warmup_duration_seconds: 0

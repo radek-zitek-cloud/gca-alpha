@@ -1,0 +1,135 @@
+# Gateway Configuration
+# This file contains the main gateway settings and behavior configuration
+
+gateway:
+  # Basic gateway information
+  name: "api-gateway"
+  version: "1.0.0"
+  description: "FastAPI-based API Gateway for microservices"
+  
+  # Server configuration
+  server:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 4
+    reload: false
+    access_log: true
+    
+  # Request handling
+  request:
+    max_request_size: "10MB"
+    timeout_seconds: 30
+    keep_alive_timeout: 5
+    max_concurrent_requests: 1000
+    
+  # Default service settings
+  defaults:
+    load_balancer: "round_robin"
+    health_check_interval: 30
+    health_check_timeout: 5
+    retry_attempts: 3
+    circuit_breaker_enabled: false
+    
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+  include_timestamp: true
+  include_correlation_id: true
+  
+  # Log destinations
+  destinations:
+    - type: "console"
+      enabled: true
+    - type: "file"
+      enabled: false
+      path: "/var/log/gateway/app.log"
+      max_size: "100MB"
+      backup_count: 5
+      
+# Security settings
+security:
+  # CORS configuration
+  cors:
+    enabled: true
+    allow_origins: ["*"]
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    allow_headers: ["*"]
+    allow_credentials: false
+    max_age: 3600
+    
+  # Authentication (future implementation)
+  authentication:
+    enabled: false
+    default_scheme: "bearer"
+    jwt:
+      secret_key: "${JWT_SECRET}"
+      algorithm: "HS256"
+      expiration: 3600
+    api_key:
+      header_name: "X-API-Key"
+      query_param: "api_key"
+      
+  # Rate limiting (future implementation)
+  rate_limiting:
+    enabled: false
+    default_limit: 100
+    window_seconds: 60
+    backend: "memory"  # memory, redis
+    
+# Monitoring and observability
+monitoring:
+  # Metrics collection
+  metrics:
+    enabled: true
+    prometheus_endpoint: "/api/v1/metrics"
+    include_system_metrics: true
+    include_request_metrics: true
+    
+  # Health checks
+  health:
+    enabled: true
+    endpoint: "/api/v1/health"
+    detailed_endpoint: "/api/v1/health/detailed"
+    include_dependencies: true
+    
+  # Tracing (future implementation)
+  tracing:
+    enabled: false
+    service_name: "api-gateway"
+    jaeger_endpoint: "http://jaeger:14268/api/traces"
+    sample_rate: 0.1
+    
+# Cache configuration (future implementation)
+cache:
+  enabled: false
+  backend: "redis"
+  redis_url: "${REDIS_URL}"
+  default_ttl: 300
+  max_memory: "100MB"
+  
+# External integrations
+integrations:
+  # Service discovery
+  service_discovery:
+    enabled: false
+    type: "static"  # static, consul, etcd, kubernetes
+    consul:
+      url: "${CONSUL_URL}"
+      service_prefix: "gateway"
+      health_check_interval: 30
+      
+  # Configuration management
+  config_management:
+    enabled: false
+    type: "file"  # file, consul, etcd
+    reload_interval: 60
+    
+# Feature flags
+features:
+  request_transformation: false
+  response_caching: false
+  circuit_breaker: false
+  retry_logic: true
+  load_balancing: true
+  health_monitoring: true

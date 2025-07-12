@@ -1,0 +1,254 @@
+# Service Definitions
+# This file defines the upstream services that the gateway will route to
+
+services:
+  # Example HTTP service
+  user-service:
+    name: "user-service"
+    description: "User management and authentication service"
+    version: "1.2.0"
+    
+    # Service instances
+    instances:
+      - id: "user-service-1"
+        url: "http://user-service-1:8080"
+        weight: 1
+        metadata:
+          region: "us-east-1"
+          datacenter: "dc1"
+          
+      - id: "user-service-2"
+        url: "http://user-service-2:8080"
+        weight: 1
+        metadata:
+          region: "us-east-1"
+          datacenter: "dc1"
+          
+      - id: "user-service-3"
+        url: "http://user-service-3:8080"
+        weight: 2  # Higher weight = more traffic
+        metadata:
+          region: "us-west-2"
+          datacenter: "dc2"
+    
+    # Load balancing strategy
+    load_balancer: "weighted_round_robin"
+    
+    # Health check configuration
+    health_check:
+      enabled: true
+      type: "http"
+      path: "/health"
+      interval_seconds: 30
+      timeout_seconds: 5
+      healthy_threshold: 2
+      unhealthy_threshold: 3
+      expected_status_codes: [200, 204]
+      
+    # Timeout configuration
+    timeouts:
+      connect: 5.0
+      read: 30.0
+      write: 5.0
+      pool: 5.0
+      
+    # Additional headers to add to requests
+    headers:
+      X-Service-Version: "1.2.0"
+      X-Gateway-Route: "user-service"
+      
+    # Retry configuration
+    retry:
+      max_attempts: 3
+      backoff_factor: 0.3
+      retry_on_status_codes: [502, 503, 504]
+      
+    # Circuit breaker (future implementation)
+    circuit_breaker:
+      enabled: false
+      failure_threshold: 5
+      recovery_timeout: 60
+      half_open_max_calls: 3
+
+  # Example API service
+  order-service:
+    name: "order-service"
+    description: "Order processing and management"
+    version: "2.1.0"
+    
+    instances:
+      - id: "order-service-1"
+        url: "http://order-service:8080"
+        weight: 1
+        
+    load_balancer: "round_robin"
+    
+    health_check:
+      enabled: true
+      type: "http"
+      path: "/api/health"
+      interval_seconds: 20
+      timeout_seconds: 3
+      expected_status_codes: [200]
+      
+    timeouts:
+      connect: 3.0
+      read: 45.0  # Longer read timeout for complex operations
+      write: 5.0
+      
+    headers:
+      X-Service-Type: "order-processing"
+      
+    # Rate limiting (future implementation)
+    rate_limit:
+      requests_per_second: 100
+      burst_capacity: 200
+
+  # Example external API
+  payment-service:
+    name: "payment-service"
+    description: "External payment processing service"
+    version: "1.0.0"
+    
+    instances:
+      - id: "payment-gateway"
+        url: "https://api.payments.example.com"
+        weight: 1
+        metadata:
+          provider: "stripe"
+          region: "global"
+          
+    load_balancer: "round_robin"
+    
+    health_check:
+      enabled: true
+      type: "http"
+      path: "/v1/health"
+      interval_seconds: 60  # Less frequent for external service
+      timeout_seconds: 10
+      expected_status_codes: [200, 201]
+      
+    timeouts:
+      connect: 10.0  # Longer timeouts for external service
+      read: 60.0
+      write: 10.0
+      
+    headers:
+      Authorization: "Bearer ${PAYMENT_API_KEY}"
+      X-API-Version: "2023-10-16"
+      
+    retry:
+      max_attempts: 2  # Fewer retries for external service
+      backoff_factor: 1.0
+      
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 3
+      recovery_timeout: 120
+
+  # Example demo service (using httpbin)
+  example-service:
+    name: "example-service"
+    description: "Demo service for testing gateway functionality"
+    version: "1.0.0"
+    
+    instances:
+      - id: "httpbin-1"
+        url: "http://httpbin.org"
+        weight: 1
+        metadata:
+          type: "demo"
+          public: true
+          
+    load_balancer: "round_robin"
+    
+    health_check:
+      enabled: true
+      type: "http"
+      path: "/status/200"
+      interval_seconds: 30
+      timeout_seconds: 5
+      expected_status_codes: [200]
+      
+    timeouts:
+      connect: 5.0
+      read: 30.0
+      write: 5.0
+      
+    headers:
+      X-Demo-Service: "true"
+
+  # Example microservice with multiple environments
+  notification-service:
+    name: "notification-service"
+    description: "Email and SMS notification service"
+    version: "1.5.0"
+    
+    instances:
+      - id: "notification-prod-1"
+        url: "http://notification-service-prod-1:8080"
+        weight: 3
+        metadata:
+          environment: "production"
+          region: "us-east-1"
+          
+      - id: "notification-prod-2"
+        url: "http://notification-service-prod-2:8080"
+        weight: 3
+        metadata:
+          environment: "production"
+          region: "us-west-2"
+          
+      - id: "notification-canary"
+        url: "http://notification-service-canary:8080"
+        weight: 1  # Small percentage for canary deployment
+        metadata:
+          environment: "canary"
+          version: "1.6.0-rc1"
+          
+    load_balancer: "weighted_round_robin"
+    
+    health_check:
+      enabled: true
+      type: "http"
+      path: "/health/ready"
+      interval_seconds: 15
+      timeout_seconds: 3
+      healthy_threshold: 2
+      unhealthy_threshold: 2
+      expected_status_codes: [200]
+      
+    timeouts:
+      connect: 3.0
+      read: 20.0
+      write: 5.0
+      
+    headers:
+      X-Service-Team: "platform"
+      X-Request-Source: "api-gateway"
+      
+    retry:
+      max_attempts: 2
+      backoff_factor: 0.5
+      
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 4
+      recovery_timeout: 90
+
+# Service groups (future implementation)
+service_groups:
+  core-services:
+    description: "Essential business services"
+    services: ["user-service", "order-service"]
+    fallback_behavior: "fail_fast"
+    
+  external-services:
+    description: "Third-party API integrations"
+    services: ["payment-service"]
+    fallback_behavior: "graceful_degradation"
+    
+  demo-services:
+    description: "Testing and demonstration services"
+    services: ["example-service"]
+    fallback_behavior: "ignore_errors"

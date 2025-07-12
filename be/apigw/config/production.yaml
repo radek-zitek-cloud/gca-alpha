@@ -1,0 +1,334 @@
+# Production Environment Configuration
+# This configuration is optimized for production deployment with high availability,
+# security, and performance considerations
+
+# Gateway server configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4  # Adjust based on CPU cores
+  debug: false
+  reload: false
+  log_level: "info"
+  access_log: false  # Disable access logs for performance
+
+# Logging configuration for production
+logging:
+  level: "INFO"
+  format: "json"  # Structured logging for log aggregation
+  output: "file"
+  file_path: "/var/log/gateway/app.log"
+  max_file_size: "100MB"
+  backup_count: 10
+  
+  # Production logging levels
+  loggers:
+    uvicorn:
+      level: "WARNING"
+    httpx:
+      level: "WARNING"
+    app.gateway:
+      level: "INFO"
+    app.services:
+      level: "INFO"
+    app.security:
+      level: "WARNING"
+
+# Security settings (strict for production)
+security:
+  cors:
+    enabled: true
+    allow_origins: 
+      - "https://app.example.com"
+      - "https://admin.example.com"
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers: 
+      - "Content-Type"
+      - "Authorization"
+      - "X-API-Key"
+      - "X-Request-ID"
+    allow_credentials: true
+    max_age: 3600
+    
+  authentication:
+    enabled: true
+    jwt:
+      secret_key: "${JWT_SECRET_KEY}"
+      algorithm: "HS256"
+      access_token_expire_minutes: 30
+      refresh_token_expire_days: 7
+      
+  rate_limiting:
+    enabled: true
+    global_limits:
+      requests_per_second: 1000
+      requests_per_minute: 50000
+      burst_capacity: 2000
+    per_client_limits:
+      requests_per_second: 10
+      requests_per_minute: 500
+      requests_per_hour: 10000
+      
+  api_keys:
+    enabled: true
+    header_name: "X-API-Key"
+    query_param: "api_key"
+    
+  tls:
+    enabled: true
+    cert_file: "/etc/ssl/certs/gateway.crt"
+    key_file: "/etc/ssl/private/gateway.key"
+    protocols: ["TLSv1.2", "TLSv1.3"]
+    
+  security_headers:
+    enabled: true
+    headers:
+      X-Content-Type-Options: "nosniff"
+      X-Frame-Options: "DENY"
+      X-XSS-Protection: "1; mode=block"
+      Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+      Content-Security-Policy: "default-src 'self'"
+
+# Monitoring and observability
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    include_detailed_metrics: false  # Reduce metric cardinality
+    prometheus:
+      enabled: true
+      namespace: "gateway"
+      labels:
+        service: "api-gateway"
+        environment: "production"
+        
+  health_checks:
+    enabled: true
+    endpoint: "/health"
+    check_upstream_services: true
+    timeout_seconds: 5
+    cache_ttl_seconds: 30  # Cache health status
+    
+  tracing:
+    enabled: true
+    jaeger:
+      endpoint: "${JAEGER_ENDPOINT}"
+      service_name: "api-gateway"
+      sample_rate: 0.1  # 10% sampling to reduce overhead
+      
+  request_logging:
+    enabled: true
+    log_request_body: false   # Don't log bodies in production
+    log_response_body: false
+    log_headers: false
+    log_errors_only: true     # Only log failed requests
+    sensitive_headers: 
+      - "authorization"
+      - "x-api-key"
+      - "cookie"
+      - "x-auth-token"
+
+# Service discovery and registry
+service_discovery:
+  type: "consul"  # Use Consul for production service discovery
+  
+  consul:
+    host: "${CONSUL_HOST:consul.service.consul}"
+    port: 8500
+    token: "${CONSUL_TOKEN}"
+    datacenter: "${CONSUL_DATACENTER:dc1}"
+    
+  static_config:
+    config_file: "services.yaml"
+    auto_reload: false  # Disable auto-reload in production
+    
+  health_check:
+    interval_seconds: 10  # More frequent checks
+    timeout_seconds: 3
+    concurrent_checks: 10
+    retry_attempts: 3
+    
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout_seconds: 60
+    half_open_max_calls: 3
+
+# Load balancing
+load_balancing:
+  default_strategy: "weighted_round_robin"
+  health_check_required: true
+  sticky_sessions: false
+  
+  # Advanced load balancing
+  algorithms:
+    weighted_round_robin:
+      weight_adjustment_factor: 0.1
+    least_connections:
+      connection_tracking_window: 300
+    
+# Caching for production performance
+cache:
+  enabled: true
+  redis:
+    host: "${REDIS_HOST:redis.service.consul}"
+    port: 6379
+    password: "${REDIS_PASSWORD}"
+    db: 0
+    ssl: true
+    pool_size: 20
+    
+  response_cache:
+    enabled: true
+    default_ttl: 300  # 5 minutes
+    max_size: "1GB"
+    
+  service_cache:
+    enabled: true
+    ttl: 60  # Cache service discovery results
+
+# Production-specific settings
+production:
+  # Resource limits
+  limits:
+    max_request_size: "10MB"
+    max_upload_size: "5MB"
+    max_concurrent_requests: 1000
+    connection_pool_size: 100
+    
+  # Timeouts (aggressive for production)
+  timeouts:
+    default_connect: 3.0
+    default_read: 30.0
+    default_write: 5.0
+    keepalive: 60.0
+    
+  # Memory management
+  memory:
+    max_heap_size: "2GB"
+    gc_threshold: 0.8
+    
+  # File descriptors
+  max_open_files: 65536
+
+# Feature flags for production
+features:
+  circuit_breaker: true
+  request_retry: true
+  response_compression: true
+  request_id_generation: true
+  graceful_shutdown: true
+  
+  # Production-specific features
+  auto_service_discovery: true
+  config_hot_reload: false
+  detailed_error_responses: false  # Hide internal errors
+  request_deduplication: true
+  response_streaming: true
+
+# External integrations
+integrations:
+  prometheus:
+    enabled: true
+    scrape_endpoint: "/metrics"
+    
+  jaeger:
+    enabled: true
+    agent_host: "${JAEGER_AGENT_HOST}"
+    agent_port: 6831
+    
+  consul:
+    enabled: true
+    health_check_interval: "10s"
+    deregister_critical_after: "30s"
+    
+  redis:
+    enabled: true
+    sentinel:
+      enabled: true
+      service_name: "mymaster"
+      sentinels:
+        - host: "sentinel1.service.consul"
+          port: 26379
+        - host: "sentinel2.service.consul"
+          port: 26379
+        - host: "sentinel3.service.consul"
+          port: 26379
+          
+  vault:
+    enabled: true
+    address: "${VAULT_ADDR}"
+    token: "${VAULT_TOKEN}"
+    mount_path: "secret/gateway"
+
+# Environment configuration
+environment:
+  name: "production"
+  deployment_id: "${DEPLOYMENT_ID}"
+  version: "${APP_VERSION}"
+  region: "${AWS_REGION:us-east-1}"
+  availability_zone: "${AWS_AZ}"
+  
+# Gateway metadata
+gateway:
+  name: "gca-api-gateway"
+  description: "Production API Gateway"
+  version: "${APP_VERSION}"
+  environment: "production"
+  region: "${AWS_REGION}"
+  
+  contact:
+    name: "Platform Team"
+    email: "platform@example.com"
+    documentation: "https://docs.example.com/api-gateway"
+    support: "https://support.example.com"
+    
+  tags:
+    - "production"
+    - "api-gateway"
+    - "critical"
+    
+# Graceful shutdown
+shutdown:
+  timeout_seconds: 30
+  drain_timeout_seconds: 15
+  
+# Startup behavior
+startup:
+  wait_for_dependencies: true
+  dependency_check_timeout: 60
+  preload_services: true
+  initial_health_check: true
+  warmup_duration_seconds: 30
+  
+# Alerting configuration
+alerting:
+  enabled: true
+  webhook_url: "${SLACK_WEBHOOK_URL}"
+  
+  rules:
+    - name: "high_error_rate"
+      condition: "error_rate > 0.05"  # 5% error rate
+      duration: "5m"
+      severity: "critical"
+      
+    - name: "high_latency"
+      condition: "p95_latency > 1000"  # 1 second
+      duration: "2m"
+      severity: "warning"
+      
+    - name: "service_down"
+      condition: "service_health == 0"
+      duration: "30s"
+      severity: "critical"
+
+# Backup and disaster recovery
+backup:
+  enabled: true
+  s3:
+    bucket: "${BACKUP_S3_BUCKET}"
+    region: "${AWS_REGION}"
+    prefix: "gateway-configs/"
+    
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30

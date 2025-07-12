@@ -34,12 +34,15 @@ dependencies = [
     "httpx>=0.28.0",
     "psutil>=6.1.0",
     "pydantic>=2.11.0",
+    "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+    "pytest-cov>=4.0.0",
     "black>=22.0.0",
     "flake8>=4.0.0",
     "isort>=5.0.0",
@@ -78,10 +81,62 @@ use_parentheses = true
 ensure_newline_before_comments = true
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = "-ra -q --strict-markers"
+# Test discovery patterns
 testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Add current directory to Python path
+pythonpath = ["."]
+
+# Minimum version requirement
+minversion = "6.0"
+
+# Test output options
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+    "--color=yes",
+    "--durations=10",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=80"
+]
+
+# Asyncio configuration
 asyncio_mode = "auto"
+
+# Test markers
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "slow: Slow tests that may take longer to run",
+    "network: Tests that require network access",
+    "config: Configuration-related tests",
+    "gateway: Gateway routing tests",
+    "registry: Service registry tests",
+    "health: Health check tests",
+    "auth: Authentication tests",
+    "metrics: Metrics and monitoring tests"
+]
+
+# Filtering options
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore:.*unclosed.*:ResourceWarning"
+]
+
+# Logging configuration for tests
+log_auto_indent = true
+log_cli = false
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_level = "INFO"
 
 [tool.flake8]
 max-line-length = 100

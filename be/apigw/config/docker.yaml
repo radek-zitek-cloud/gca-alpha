@@ -1,0 +1,180 @@
+# Docker Environment Configuration
+# This configuration is optimized for Docker container deployment
+
+# Gateway server configuration
+server:
+  host: "0.0.0.0"  # Bind to all interfaces in container
+  port: 8080
+  workers: 2
+  debug: false
+  reload: false
+  log_level: "info"
+  access_log: true
+
+# Logging configuration for containers
+logging:
+  level: "INFO"
+  format: "json"  # Structured logging for container orchestration
+  output: "console"  # Log to stdout for container logs
+  
+  # Container-friendly logging
+  loggers:
+    uvicorn:
+      level: "INFO"
+    httpx:
+      level: "INFO"
+    app.gateway:
+      level: "INFO"
+    app.services:
+      level: "INFO"
+
+# Security settings for container deployment
+security:
+  cors:
+    enabled: true
+    allow_origins: 
+      - "${ALLOWED_ORIGINS:*}"  # Configure via environment variable
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers: ["*"]
+    allow_credentials: true
+    
+  authentication:
+    enabled: "${AUTH_ENABLED:false}"
+    
+  rate_limiting:
+    enabled: "${RATE_LIMITING_ENABLED:false}"
+    
+  api_keys:
+    enabled: "${API_KEYS_ENABLED:false}"
+
+# Monitoring for containerized deployment
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    
+  health_checks:
+    enabled: true
+    endpoint: "/health"
+    check_upstream_services: true
+    timeout_seconds: 5
+    
+  tracing:
+    enabled: "${TRACING_ENABLED:false}"
+    
+  request_logging:
+    enabled: true
+    log_request_body: false
+    log_response_body: false
+    log_headers: false
+
+# Service discovery for Docker environments
+service_discovery:
+  type: "${SERVICE_DISCOVERY_TYPE:static}"
+  
+  static_config:
+    config_file: "services.yaml"
+    auto_reload: false
+    
+  consul:
+    host: "${CONSUL_HOST:consul}"
+    port: "${CONSUL_PORT:8500}"
+    token: "${CONSUL_TOKEN:}"
+    
+  health_check:
+    interval_seconds: 30
+    timeout_seconds: 5
+    concurrent_checks: 5
+
+# Load balancing
+load_balancing:
+  default_strategy: "round_robin"
+  health_check_required: true
+
+# Caching for Docker deployment
+cache:
+  enabled: "${REDIS_ENABLED:false}"
+  redis:
+    host: "${REDIS_HOST:redis}"
+    port: "${REDIS_PORT:6379}"
+    password: "${REDIS_PASSWORD:}"
+    db: "${REDIS_DB:0}"
+
+# Container-specific settings
+container:
+  # Resource limits
+  limits:
+    max_request_size: "10MB"
+    max_upload_size: "5MB"
+    max_concurrent_requests: 500
+    
+  # Timeouts
+  timeouts:
+    default_connect: 5.0
+    default_read: 30.0
+    default_write: 5.0
+    
+  # Graceful shutdown for container orchestration
+  shutdown:
+    timeout_seconds: 30
+    
+  # Health check configuration for container orchestration
+  container_health:
+    startup_probe:
+      path: "/health"
+      initial_delay_seconds: 10
+      period_seconds: 5
+      timeout_seconds: 3
+      failure_threshold: 5
+      
+    liveness_probe:
+      path: "/health"
+      period_seconds: 30
+      timeout_seconds: 5
+      failure_threshold: 3
+      
+    readiness_probe:
+      path: "/health"
+      period_seconds: 10
+      timeout_seconds: 3
+      failure_threshold: 3
+
+# Feature flags
+features:
+  circuit_breaker: "${CIRCUIT_BREAKER_ENABLED:false}"
+  request_retry: true
+  response_compression: "${COMPRESSION_ENABLED:true}"
+  request_id_generation: true
+
+# External integrations (configured via environment)
+integrations:
+  prometheus:
+    enabled: "${PROMETHEUS_ENABLED:true}"
+    
+  jaeger:
+    enabled: "${JAEGER_ENABLED:false}"
+    agent_host: "${JAEGER_AGENT_HOST:jaeger}"
+    agent_port: "${JAEGER_AGENT_PORT:6831}"
+    
+  consul:
+    enabled: "${CONSUL_ENABLED:false}"
+
+# Environment configuration
+environment:
+  name: "docker"
+  deployment_id: "${DEPLOYMENT_ID:docker-local}"
+  version: "${APP_VERSION:latest}"
+  
+# Gateway metadata
+gateway:
+  name: "gca-api-gateway"
+  description: "Dockerized API Gateway"
+  version: "${APP_VERSION:latest}"
+  environment: "docker"
+  
+# Startup behavior for containers
+startup:
+  wait_for_dependencies: "${WAIT_FOR_DEPS:false}"
+  preload_services: true
+  initial_health_check: true
+  warmup_duration_seconds: 5
