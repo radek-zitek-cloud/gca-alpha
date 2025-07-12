@@ -3,6 +3,7 @@
 Test runner script for API Gateway tests.
 
 This script provides various options for running tests with different configurations.
+All test files have been moved to the proper tests/ directory structure.
 """
 
 import os

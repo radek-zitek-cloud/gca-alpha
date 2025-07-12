@@ -16,6 +16,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     auth,
+    oauth,
     rbac,
     api_keys,
     admin,
@@ -31,6 +32,11 @@ api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(
     auth.router,
     tags=["Authentication"]
+)
+
+api_router.include_router(
+    oauth.router,
+    tags=["OAuth Authentication"]
 )
 
 api_router.include_router(
