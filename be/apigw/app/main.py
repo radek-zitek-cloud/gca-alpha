@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.metrics import router as metrics_router
+from app.gateway.router import router as gateway_router
 from app.core.middleware import MetricsMiddleware
 
 app = FastAPI(
@@ -20,6 +21,9 @@ app.include_router(health_router, prefix="/api/v1")
 
 # Include metrics endpoints  
 app.include_router(metrics_router, prefix="/api/v1")
+
+# Include gateway router (should be last to catch all remaining routes)
+app.include_router(gateway_router)
 
 
 @app.get("/")
