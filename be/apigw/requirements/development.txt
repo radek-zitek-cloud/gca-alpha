@@ -14,3 +14,6 @@ isort>=5.0.0
 
 # HTTP testing (already included but ensuring version)
 httpx>=0.28.0
+
+# Enhanced CLI output for testing
+rich>=13.0.0

@@ -150,6 +150,20 @@ integrations:
   redis:
     enabled: false
     
+  # Weather service integration for development
+  weather:
+    enabled: true
+    provider: "openweathermap"
+    api_timeout: 60.0      # Longer timeout for debugging
+    cache_ttl: 300         # Shorter cache for development (5 minutes)
+    default_units: "metric"
+    default_language: "en"
+    debug_mode: true       # Enable debug logging
+    mock_responses: false  # Set to true to use mock data
+    rate_limit:
+      calls_per_minute: 60
+      calls_per_day: 1000
+    
 # Environment-specific overrides
 environment:
   name: "development"

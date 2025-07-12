@@ -8,10 +8,14 @@ middleware, routing, and service registry setup.
 import logging
 from fastapi import FastAPI, HTTPException
 
-from app.api.v1.endpoints.health import router as health_router
-from app.api.v1.endpoints.metrics import router as metrics_router
+from app.api.v1.router import api_router
+from app.core.rbac import rbac_admin, rbac_engine
 from app.gateway.router_new import router as gateway_router, proxy_router
 from app.core.middleware import MetricsMiddleware
+from app.middleware.jwt_middleware import JWTAuthMiddleware, RoleBasedAccessMiddleware
+from app.middleware.api_key_middleware import APIKeyAuthMiddleware, create_api_key_middleware_config
+from app.middleware.auth import AuthConfig
+from app.config.jwt_config import validate_jwt_config
 from app.config.settings import ConfigLoader, get_services_config
 from app.config.logging import setup_logging
 from app.services.registry import ServiceRegistry
@@ -82,6 +86,15 @@ async def lifespan(app: FastAPI):
     
     app.state.service_registry = registry
     
+    # Initialize RBAC system with existing roles and policies
+    try:
+        # The system is already initialized with default roles
+        roles = rbac_engine.role_manager.list_roles()
+        policies = rbac_engine.policy_manager.list_policies()
+        logger.info(f"RBAC system initialized with {len(roles)} roles and {len(policies)} policies")
+    except Exception as e:
+        logger.error(f"Failed to check RBAC system status: {e}")
+    
     yield
     
     # Cleanup
@@ -90,21 +103,39 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="GCA API Gateway",
-    description="A high-performance API Gateway for microservices",
+    description="A high-performance API Gateway for microservices with JWT Authentication",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
+# Configure authentication
+auth_config = AuthConfig.from_jwt_settings()
+
+# Validate JWT configuration
+if not validate_jwt_config():
+    logger.warning("JWT configuration has issues - please review for production use")
+
+# Configure API key middleware
+api_key_config = create_api_key_middleware_config(
+    enable_for_all_api_routes=True,
+    require_for_gateway=True,
+    require_for_weather=True,
+    require_for_metrics=True,
+    require_for_admin=True
+)
+
+# Add authentication middleware (order matters!)
+app.add_middleware(RoleBasedAccessMiddleware)
+app.add_middleware(JWTAuthMiddleware, config=auth_config)
+app.add_middleware(APIKeyAuthMiddleware, **api_key_config)
+
 # Add metrics middleware
 app.add_middleware(MetricsMiddleware)
 
-# Include health endpoints
-app.include_router(health_router, prefix="/api/v1")
-
-# Include metrics endpoints  
-app.include_router(metrics_router, prefix="/api/v1")
+# Include all API endpoints via main router
+app.include_router(api_router)
 
 # Include gateway management endpoints
 app.include_router(gateway_router)

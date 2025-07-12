@@ -125,6 +125,18 @@ integrations:
     type: "file"  # file, consul, etcd
     reload_interval: 60
     
+  # Weather service integration
+  weather:
+    enabled: true
+    provider: "openweathermap"
+    api_timeout: 30.0
+    cache_ttl: 600  # 10 minutes
+    default_units: "metric"
+    default_language: "en"
+    rate_limit:
+      calls_per_minute: 60
+      calls_per_day: 1000
+    
 # Feature flags
 features:
   request_transformation: false

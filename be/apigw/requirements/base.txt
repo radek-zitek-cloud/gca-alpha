@@ -13,6 +13,8 @@ idna>=3.10
 # Data validation and serialization
 pydantic>=2.11.7
 pydantic_core>=2.33.2
+pydantic-settings>=2.7.0
+email-validator>=2.3.0
 annotated-types>=0.7.0
 
 # Configuration and logging
@@ -21,6 +23,13 @@ python-json-logger>=3.3.0
 
 # System monitoring and utilities
 psutil>=6.1.0
+
+# Authentication and security
+PyJWT>=2.10.1
+cryptography>=44.0.0
+passlib>=1.7.4
+bcrypt>=4.2.1
+python-multipart>=0.0.19
 
 # Type checking and utilities
 typing_extensions>=4.14.1

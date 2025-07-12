@@ -178,6 +178,60 @@ services:
     headers:
       X-Demo-Service: "true"
 
+  # OpenWeatherMap API service
+  weather-service:
+    name: "weather-service"
+    description: "OpenWeatherMap API integration for weather data"
+    version: "2.5"
+    
+    instances:
+      - id: "openweathermap-api"
+        url: "https://api.openweathermap.org"
+        weight: 1
+        metadata:
+          provider: "openweathermap"
+          type: "external_api"
+          region: "global"
+          
+    load_balancer: "round_robin"
+    
+    health_check:
+      enabled: true
+      type: "http"
+      path: "/data/2.5/weather?q=London&appid=${OPENWEATHER_API_KEY}"
+      interval_seconds: 300  # Check every 5 minutes for external API
+      timeout_seconds: 10
+      expected_status_codes: [200]
+      
+    timeouts:
+      connect: 10.0   # Longer timeouts for external API
+      read: 30.0
+      write: 10.0
+      
+    headers:
+      User-Agent: "API-Gateway-Weather-Service/1.0"
+      Accept: "application/json"
+      
+    retry:
+      max_attempts: 3
+      backoff_factor: 1.0
+      retry_on_status_codes: [429, 502, 503, 504]  # Include 429 for rate limiting
+      
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 5
+      recovery_timeout: 300  # 5 minutes recovery for external API
+      
+    # Weather service specific configuration
+    weather:
+      api_timeout: 30.0
+      cache_ttl: 600        # 10 minutes cache for weather data
+      default_units: "metric"
+      default_language: "en"
+      rate_limit:
+        calls_per_minute: 60   # OpenWeatherMap free tier limit
+        calls_per_day: 1000
+
   # Example microservice with multiple environments
   notification-service:
     name: "notification-service"
