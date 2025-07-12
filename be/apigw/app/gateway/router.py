@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, List
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from fastapi import APIRouter, Request, Response, HTTPException, status
+from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
@@ -20,20 +20,169 @@ from app.services.registry import ServiceRegistry
 from app.utils.helpers import extract_service_from_path, build_upstream_url
 
 
-# Global service registry instance
-service_registry = ServiceRegistry()
-
-# Router for gateway endpoints
+# Router for gateway management endpoints (with /gateway prefix)
 router = APIRouter(prefix="/gateway", tags=["gateway"])
 
+# Router for proxy functionality (no prefix, catch-all)
+proxy_router = APIRouter(tags=["proxy"])
 
-@router.api_route(
+
+def get_service_registry(request: Request) -> ServiceRegistry:
+    """Dependency to get the service registry from app state."""
+    return request.app.state.service_registry
+
+
+# Gateway management endpoints - these must come BEFORE the catch-all proxy route
+
+@router.get(
+    "/services",
+    summary="List available services",
+    description="Returns a list of all registered services and their status"
+)
+async def list_services(service_registry: ServiceRegistry = Depends(get_service_registry)) -> Dict[str, Any]:
+    """
+    List all registered services and their current status.
+    
+    Returns:
+        Dict: Dictionary of services with their health status
+    """
+    services = await service_registry.list_services()
+    service_status = {}
+    
+    for service_name, service in services.items():
+        health_status = await service_registry.get_service_health(service_name)
+        service_status[service_name] = {
+            "name": service.name,
+            "description": service.description,
+            "version": service.version,
+            "instances": len(service.instances),
+            "healthy_instances": len([i for i in service.instances if i.healthy]),
+            "load_balancer": service.load_balancer_type,
+            "health": health_status.dict() if health_status else None
+        }
+    
+    return {
+        "total_services": len(services),
+        "services": service_status
+    }
+
+
+@router.get(
+    "/routing-rules",
+    summary="Get routing rules",
+    description="Returns current routing rules and configuration"
+)
+async def get_routing_rules(service_registry: ServiceRegistry = Depends(get_service_registry)) -> Dict[str, Any]:
+    """
+    Get current routing rules and configuration.
+    
+    Returns:
+        Dict: Current routing rules
+    """
+    rules = await service_registry.get_routing_rules()
+    return {
+        "routing_rules": rules,
+        "timestamp": time.time()
+    }
+
+
+@router.get(
+    "/services/{service_name}",
+    summary="Get service details",
+    description="Returns detailed information about a specific service"
+)
+async def get_service_details(service_name: str, service_registry: ServiceRegistry = Depends(get_service_registry)) -> Dict[str, Any]:
+    """
+    Get detailed information about a specific service.
+    
+    Args:
+        service_name: Name of the service
+        
+    Returns:
+        Dict: Detailed service information
+        
+    Raises:
+        HTTPException: If service is not found
+    """
+    service = await service_registry.get_service(service_name)
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found"
+        )
+    
+    health_status = await service_registry.get_service_health(service_name)
+    
+    return {
+        "name": service.name,
+        "description": service.description,
+        "version": service.version,
+        "instances": [
+            {
+                "id": instance.id,
+                "url": instance.url,
+                "healthy": instance.healthy,
+                "weight": instance.weight,
+                "metadata": instance.metadata,
+                "last_health_check": instance.last_health_check.isoformat() if instance.last_health_check else None
+            }
+            for instance in service.instances
+        ],
+        "load_balancer": service.load_balancer_type,
+        "health_check": service.health_check,
+        "timeout_config": service.timeout_config,
+        "headers": service.headers,
+        "retry_config": service.retry_config,
+        "circuit_breaker": service.circuit_breaker,
+        "health": health_status.dict() if health_status else None
+    }
+
+
+@router.post(
+    "/services/{service_name}/health-check",
+    summary="Trigger health check",
+    description="Manually trigger a health check for a specific service"
+)
+async def trigger_health_check(service_name: str, service_registry: ServiceRegistry = Depends(get_service_registry)) -> Dict[str, Any]:
+    """
+    Manually trigger a health check for a specific service.
+    
+    Args:
+        service_name: Name of the service to check
+        
+    Returns:
+        Dict: Health check results
+        
+    Raises:
+        HTTPException: If service is not found
+    """
+    service = await service_registry.get_service(service_name)
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found"
+        )
+    
+    # Trigger health check
+    health_results = await service_registry.check_service_health(service_name)
+    
+    return {
+        "service_name": service_name,
+        "health_check_timestamp": time.time(),
+        "results": health_results
+    }
+
+
+# Catch-all proxy route - on the proxy router without prefix
+
+
+@proxy_router.api_route(
     "/{service_name:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
     summary="Gateway proxy endpoint",
     description="Forwards requests to upstream services based on routing rules"
 )
-async def gateway_proxy(request: Request, service_name: str) -> Response:
+async def gateway_proxy(request: Request, service_name: str, service_registry: ServiceRegistry = Depends(get_service_registry)) -> Response:
     """
     Main gateway proxy endpoint that forwards requests to upstream services.
     
@@ -177,139 +326,8 @@ async def _forward_request(request: Request, upstream_url: str, service: Service
     )
 
 
-@router.get(
-    "/services",
-    summary="List available services",
-    description="Returns a list of all registered services and their status"
-)
-async def list_services() -> Dict[str, Any]:
-    """
-    List all registered services and their current status.
-    
-    Returns:
-        Dict: Dictionary of services with their health status
-    """
-    services = await service_registry.list_services()
-    service_status = {}
-    
-    for service_name, service in services.items():
-        health_status = await service_registry.get_service_health(service_name)
-        service_status[service_name] = {
-            "name": service.name,
-            "description": service.description,
-            "version": service.version,
-            "instances": len(service.instances),
-            "healthy_instances": len([i for i in service.instances if i.healthy]),
-            "load_balancer": service.load_balancer_type,
-            "health": health_status.dict() if health_status else None
-        }
-    
-    return {
-        "total_services": len(services),
-        "services": service_status
-    }
-
-
-@router.get(
-    "/services/{service_name}",
-    summary="Get service details",
-    description="Returns detailed information about a specific service"
-)
-async def get_service_details(service_name: str) -> Dict[str, Any]:
-    """
-    Get detailed information about a specific service.
-    
-    Args:
-        service_name: Name of the service
-        
-    Returns:
-        Dict: Detailed service information
-        
-    Raises:
-        HTTPException: If service is not found
-    """
-    service = await service_registry.get_service(service_name)
-    if not service:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Service '{service_name}' not found"
-        )
-    
-    health_status = await service_registry.get_service_health(service_name)
-    
-    return {
-        "service": service.dict(),
-        "health": health_status.dict() if health_status else None,
-        "instances": [
-            {
-                "id": instance.id,
-                "url": instance.url,
-                "healthy": instance.healthy,
-                "last_check": instance.last_health_check.isoformat() if instance.last_health_check else None,
-                "response_time_ms": instance.response_time_ms,
-                "metadata": instance.metadata
-            }
-            for instance in service.instances
-        ]
-    }
-
-
-@router.post(
-    "/services/{service_name}/health-check",
-    summary="Trigger health check",
-    description="Manually trigger a health check for a specific service"
-)
-async def trigger_health_check(service_name: str) -> Dict[str, Any]:
-    """
-    Manually trigger a health check for a specific service.
-    
-    Args:
-        service_name: Name of the service to check
-        
-    Returns:
-        Dict: Health check results
-        
-    Raises:
-        HTTPException: If service is not found
-    """
-    service = await service_registry.get_service(service_name)
-    if not service:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Service '{service_name}' not found"
-        )
-    
-    # Trigger health check
-    health_results = await service_registry.check_service_health(service_name)
-    
-    return {
-        "service_name": service_name,
-        "health_check_timestamp": time.time(),
-        "results": health_results
-    }
-
-
-@router.get(
-    "/routing-rules",
-    summary="Get routing rules",
-    description="Returns current routing rules and configuration"
-)
-async def get_routing_rules() -> Dict[str, Any]:
-    """
-    Get current routing rules and configuration.
-    
-    Returns:
-        Dict: Current routing rules
-    """
-    rules = await service_registry.get_routing_rules()
-    return {
-        "routing_rules": rules,
-        "timestamp": time.time()
-    }
-
-
 # Background task to periodically check service health
-async def periodic_health_check():
+async def periodic_health_check(service_registry: ServiceRegistry):
     """Background task to periodically check the health of all services."""
     while True:
         try:
@@ -324,19 +342,5 @@ async def periodic_health_check():
         await asyncio.sleep(30)  # Check every 30 seconds
 
 
-# Initialize the health check background task
-@router.on_event("startup")
-async def startup_event():
-    """Initialize gateway components on startup."""
-    # Load initial service configuration
-    await service_registry.load_initial_services()
-    
-    # Start periodic health checking
-    asyncio.create_task(periodic_health_check())
-
-
-@router.on_event("shutdown") 
-async def shutdown_event():
-    """Cleanup on shutdown."""
-    # Cleanup any resources
-    await service_registry.cleanup()
+# Note: Router startup/shutdown events are deprecated in FastAPI
+# These should be handled in main.py app startup/shutdown events

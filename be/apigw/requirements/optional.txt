@@ -1,0 +1,31 @@
+# Optional service discovery providers
+# Install only what you need for your environment
+
+# Consul service discovery
+python-consul>=1.1.0
+
+# Kubernetes service discovery  
+kubernetes>=28.0.0
+
+# etcd service discovery
+python-etcd3>=0.12.0
+
+# Redis for caching and service discovery
+redis>=5.0.0
+aioredis>=2.0.0
+
+# Enhanced monitoring and observability
+prometheus-client>=0.19.0
+structlog>=23.0.0
+
+# Database support
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+python-multipart>=0.0.6
+
+# Alternative ASGI server for production
+gunicorn>=21.0.0

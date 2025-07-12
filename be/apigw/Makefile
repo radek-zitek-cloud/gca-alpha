@@ -1,4 +1,4 @@
-.PHONY: help install dev test run clean lint
+.PHONY: help install dev test run clean lint format check-format check-lint check-types test-unit test-integration test-quick test-coverage test-watch test-debug test-parallel test-specific test-marker test-deps qa check-all validate ci-test ci-setup
 
 # Default target
 help:
@@ -19,10 +19,6 @@ dev:
 	pip install -r requirements/base.txt
 	pip install -r requirements/development.txt
 
-# Run tests
-test:
-	python -m pytest tests/ -v
-
 # Run the application
 run:
 	uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -37,17 +33,6 @@ clean:
 	find . -type d -name "__pycache__" -delete
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 
-# Run linting
-lint:
-	flake8 app/
-	black --check app/
-	isort --check-only app/
-
-# Format code
-format:
-	black app/
-	isort app/
-
 # Create development requirements file if it doesn't exist
 requirements/development.txt:
 	touch requirements/development.txt
@@ -60,8 +45,6 @@ requirements/development.txt:
 	echo "isort>=5.0.0" >> requirements/development.txt
 
 # Testing targets
-.PHONY: test test-unit test-integration test-quick test-coverage test-watch test-debug
-
 test: ## Run all tests
 	python scripts/run_tests.py --type all
 
@@ -96,8 +79,6 @@ test-deps: ## Install test dependencies
 	python scripts/run_tests.py --install-deps
 
 # Linting and code quality
-.PHONY: lint format check-format check-lint check-types
-
 lint: ## Run linting with flake8
 	flake8 app tests scripts
 
@@ -116,8 +97,6 @@ check-types: ## Run type checking with mypy (if available)
 	-mypy app --ignore-missing-imports
 
 # Quality assurance
-.PHONY: qa check-all validate
-
 check-all: check-format check-lint test-coverage ## Run all checks and tests
 
 qa: check-all ## Alias for check-all
@@ -131,8 +110,6 @@ validate: ## Validate project structure and configuration
 	@echo "✅ Project structure is valid"
 
 # Continuous Integration helpers
-.PHONY: ci-test ci-setup
-
 ci-setup: ## Set up CI environment
 	pip install -e .[dev]
 	python scripts/run_tests.py --install-deps
